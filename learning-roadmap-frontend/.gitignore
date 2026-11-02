@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+
+# production build
+build/
+
+# local env files (may contain config)
+.env
+.env.local
+
+# logs / OS / IDE
+npm-debug.log*
+.DS_Store
+.vscode/
+.idea/

@@ -1,38 +1,40 @@
-import React, { useState } from 'react';
-import { getUserHistory } from '../services/api';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { getUserHistory, getErrorMessage } from '../services/api';
 import './HistoryPage.css';
 
 /**
- * HISTORY PAGE — Lookup past roadmaps by email
+ * HISTORY PAGE — Your past roadmaps
  *
- * Simple search page: user enters their email,
- * we call GET /api/roadmap/history?email=...
- * and display all their past roadmaps.
+ * V2 (JWT): no email search any more. The page is login-protected and calls
+ * GET /api/roadmap/history, and the backend returns only the logged-in user's
+ * roadmaps (it reads the email from the token).
+ *
+ * Each item: { roadmapId, targetRole, currentSkills[], skillsToLearn[],
+ *              totalEstimatedHours, completionPercentage, createdAt }
  */
 function HistoryPage() {
-  const [email, setEmail]       = useState('');
-  const [history, setHistory]   = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const [searched, setSearched] = useState(false);
-  const [error, setError]       = useState('');
+  const { user } = useAuth();
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState('');
 
-  const handleSearch = async () => {
-    if (!email.includes('@')) {
-      setError('Please enter a valid email address.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-    try {
-      const response = await getUserHistory(email);
-      setHistory(response.data);
-      setSearched(true);
-    } catch (err) {
-      setError('Could not fetch history. Is the backend running?');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Load history once when the page opens
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const response = await getUserHistory();
+        setHistory(response.data);
+      } catch (err) {
+        // A 401 is handled globally (user is sent to /login); show other errors here
+        setError(getErrorMessage(err, 'Could not fetch history.'));
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHistory();
+  }, []);
 
   // Format date: "2024-01-15T10:30:00" → "Jan 15, 2024"
   const formatDate = (dateStr) => {
@@ -47,42 +49,31 @@ function HistoryPage() {
 
         <div className="history-header animate-up">
           <h1 className="history-title">Roadmap History</h1>
-          <p className="history-sub">Enter your email to see all your past roadmaps.</p>
-        </div>
-
-        {/* Search */}
-        <div className="search-box animate-up">
-          <input
-            type="email"
-            className="form-input search-input"
-            placeholder="Enter your email address..."
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          />
-          <button className="btn btn-primary" onClick={handleSearch} disabled={loading}>
-            {loading ? 'Searching...' : '🔍 Search'}
-          </button>
+          <p className="history-sub">
+            All roadmaps you generated{user?.email ? <> as <strong>{user.email}</strong></> : null}.
+          </p>
         </div>
 
         {error && <div className="error-banner">⚠️ {error}</div>}
 
+        {loading && <div className="empty-state">Loading your roadmaps...</div>}
+
         {/* Results */}
-        {searched && (
+        {!loading && !error && (
           <div className="history-results animate-up">
             {history.length === 0 ? (
               <div className="empty-state">
-                No roadmaps found for <strong>{email}</strong>.
-                <br />Try generating one first!
+                You haven't generated any roadmaps yet.
+                <br /><Link to="/generate">Generate your first one →</Link>
               </div>
             ) : (
               <>
                 <p className="results-count">
-                  Found <strong>{history.length}</strong> roadmap(s) for <strong>{email}</strong>
+                  Found <strong>{history.length}</strong> roadmap(s)
                 </p>
                 <div className="history-grid">
                   {history.map((item) => (
-                    <div key={item.id} className="history-card">
+                    <div key={item.roadmapId} className="history-card">
 
                       <div className="history-card__header">
                         <h3 className="history-card__role">{item.targetRole}</h3>
@@ -104,16 +95,16 @@ function HistoryPage() {
                         <span>🕐 {item.totalEstimatedHours}h to learn</span>
                       </div>
 
-                      {/* Known skills */}
-                      {item.currentSkills && (
+                      {/* Known skills (the backend now sends an array, not a comma-separated string) */}
+                      {item.currentSkills && item.currentSkills.length > 0 && (
                         <div className="history-card__skills">
                           <span className="skills-label">Known:</span>
-                          {item.currentSkills.split(', ').slice(0, 4).map(s => (
+                          {item.currentSkills.slice(0, 4).map(s => (
                             <span key={s} className="skill-tag">{s}</span>
                           ))}
-                          {item.currentSkills.split(', ').length > 4 && (
+                          {item.currentSkills.length > 4 && (
                             <span className="skill-tag skill-tag--more">
-                              +{item.currentSkills.split(', ').length - 4} more
+                              +{item.currentSkills.length - 4} more
                             </span>
                           )}
                         </div>

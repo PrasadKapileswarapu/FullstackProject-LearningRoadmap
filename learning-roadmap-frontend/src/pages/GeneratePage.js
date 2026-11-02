@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllRoles, getSkillsByRole, generateRoadmap } from '../services/api';
+import { getAllRoles, getSkillsByRole, generateRoadmap, getErrorMessage } from '../services/api';
 import './GeneratePage.css';
 
 /**
@@ -11,16 +11,18 @@ import './GeneratePage.css';
  *  useEffect → fetch roles when page loads, fetch skills when role changes
  *  useNavigate → redirect to /result after successful API call
  *
- * FORM FLOW:
- *  Step 1: Enter name + email
- *  Step 2: Select target role
- *  Step 3: Check off skills you know → Submit
+ * FORM FLOW (V2):
+ *  Step 1: Select target role
+ *  Step 2: Check off skills you know → Submit
+ *
+ * Name + email are no longer asked here: the user is already logged in, and the
+ * backend reads who they are from the JWT token.
  */
 function GeneratePage() {
   const navigate = useNavigate();
 
   // ---- STATE ----
-  const [step, setStep] = useState(1);                  // Current step (1, 2, or 3)
+  const [step, setStep] = useState(1);                  // Current step (1 or 2)
   const [roles, setRoles] = useState([]);               // Roles from API
   const [skills, setSkills] = useState([]);             // Skills for selected role
   const [loading, setLoading] = useState(false);        // API call in progress
@@ -28,8 +30,6 @@ function GeneratePage() {
 
   // Form data — all collected across 3 steps
   const [formData, setFormData] = useState({
-    userName: '',
-    userEmail: '',
     targetRoleId: '',
     currentSkills: [],   // Array of skill names the user knows
   });
@@ -89,18 +89,12 @@ function GeneratePage() {
   const nextStep = () => { setError(''); setStep(s => s + 1); };
   const prevStep = () => { setError(''); setStep(s => s - 1); };
 
-  // Validate step 1 fields
-  const isStep1Valid = () =>
-    formData.userName.trim() !== '' && formData.userEmail.includes('@');
-
   // Submit to Spring Boot
   const handleSubmit = async () => {
     setLoading(true);
     setError('');
     try {
       const payload = {
-        userName: formData.userName,
-        userEmail: formData.userEmail,
         targetRoleId: parseInt(formData.targetRoleId),
         currentSkills: formData.currentSkills,
       };
@@ -111,7 +105,7 @@ function GeneratePage() {
 
       navigate('/result'); // Go to result page
     } catch (err) {
-      setError('Failed to generate roadmap. Please try again.');
+      setError(getErrorMessage(err, 'Failed to generate roadmap. Please try again.'));
       console.error(err);
     } finally {
       setLoading(false);
@@ -132,11 +126,11 @@ function GeneratePage() {
 
         {/* Progress bar */}
         <div className="progress-bar">
-          {[1, 2, 3].map(n => (
+          {[1, 2].map(n => (
             <div key={n} className={`progress-step ${step >= n ? 'active' : ''} ${step > n ? 'done' : ''}`}>
               <div className="progress-dot">{step > n ? '✓' : n}</div>
               <span className="progress-label">
-                {n === 1 ? 'Your Info' : n === 2 ? 'Target Role' : 'Your Skills'}
+                {n === 1 ? 'Target Role' : 'Your Skills'}
               </span>
             </div>
           ))}
@@ -145,48 +139,8 @@ function GeneratePage() {
         {/* Error message */}
         {error && <div className="error-banner">⚠️ {error}</div>}
 
-        {/* ---- STEP 1: Name & Email ---- */}
+        {/* ---- STEP 1: Target Role ---- */}
         {step === 1 && (
-          <div className="form-step animate-up">
-            <h2 className="form-title">Let's get to know you</h2>
-            <p className="form-subtitle">We'll save your roadmap so you can track progress.</p>
-
-            <div className="form-group">
-              <label className="form-label">Your Name</label>
-              <input
-                type="text"
-                name="userName"
-                className="form-input"
-                placeholder="e.g. Rahul Sharma"
-                value={formData.userName}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Email Address</label>
-              <input
-                type="email"
-                name="userEmail"
-                className="form-input"
-                placeholder="e.g. rahul@email.com"
-                value={formData.userEmail}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <button
-              className="btn btn-primary full-width"
-              onClick={nextStep}
-              disabled={!isStep1Valid()}
-            >
-              Continue →
-            </button>
-          </div>
-        )}
-
-        {/* ---- STEP 2: Target Role ---- */}
-        {step === 2 && (
           <div className="form-step animate-up">
             <h2 className="form-title">What role do you want?</h2>
             <p className="form-subtitle">Pick the job title you're aiming for.</p>
@@ -205,8 +159,7 @@ function GeneratePage() {
               ))}
             </div>
 
-            <div className="form-nav">
-              <button className="btn btn-outline" onClick={prevStep}>← Back</button>
+            <div className="form-nav" style={{ justifyContent: 'flex-end' }}>
               <button
                 className="btn btn-primary"
                 onClick={nextStep}
@@ -218,8 +171,8 @@ function GeneratePage() {
           </div>
         )}
 
-        {/* ---- STEP 3: Current Skills ---- */}
-        {step === 3 && (
+        {/* ---- STEP 2: Current Skills ---- */}
+        {step === 2 && (
           <div className="form-step animate-up">
             <h2 className="form-title">What do you already know?</h2>
             <p className="form-subtitle">

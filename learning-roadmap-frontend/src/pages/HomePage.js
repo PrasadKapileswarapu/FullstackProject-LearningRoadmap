@@ -79,7 +79,7 @@ function HomePage() {
       <section className="cta-section">
         <div className="cta-box container">
           <h2 className="cta-title">Ready to build your path?</h2>
-          <p className="cta-sub">It takes less than 2 minutes. No account needed.</p>
+          <p className="cta-sub">It takes less than 2 minutes. Sign up free to save your roadmaps.</p>
           <Link to="/generate" className="btn btn-primary">Get Started Free →</Link>
         </div>
       </section>

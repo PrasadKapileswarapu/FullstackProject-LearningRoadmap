@@ -71,3 +71,10 @@
   padding: 8px 20px;
   font-size: 0.88rem;
 }
+
+/* V2: logged-in user name */
+.nav-user {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  margin-left: 10px;
+}
